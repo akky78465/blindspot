@@ -6,7 +6,7 @@ import { parseUpload } from './upload';
 import { edgesPrompt } from './prompts/edges';
 import { featuresPrompt } from './prompts/features';
 import { normalizePrompt } from './prompts/normalize';
-export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggestions:Suggestion[]; busy:boolean; progress:{completed:number;total:number;current:string;status:string};created:number}
+export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggestions:Suggestion[]; busy:boolean; progress:{completed:number;total:number;current:string;status:string;error:string};created:number}
 @Injectable()
 export class Sessions {
   readonly sessions = new Map<string,Session>();
@@ -29,12 +29,19 @@ export class Sessions {
     if(map.features.some(f=>new Set([...f.coveredCategories,...f.uncoveredCategories]).size!==11 || f.coveredCategories.some(c=>f.uncoveredCategories.includes(c)))) throw new BadRequestException('Feature coverage categories must be complete and disjoint.');
     session.featureMap=map;session.suggestions=[];return map;
   }
+  beginEdges(id:string) {
+    const session=this.get(id);
+    if(session.busy) throw new ConflictException('An analysis is already running.');
+    if(!session.featureMap) throw new BadRequestException('Create the feature map first.');
+    void this.edges(id).catch(()=>undefined);
+    return {started:true};
+  }
   async edges(id:string) {
     const session=this.get(id);
     if(session.busy) throw new ConflictException('An analysis is already running.');
     if(!session.featureMap) throw new BadRequestException('Create the feature map first.');
     session.busy=true;
-    session.progress={completed:0,total:session.featureMap.features.length,current:'',status:'running'};
+    session.progress={completed:0,total:session.featureMap.features.length,current:'',status:'running',error:''};
     const suggestions:Suggestion[]=[];
     try {
       for(const feature of session.featureMap.features) {
@@ -52,7 +59,7 @@ export class Sessions {
       const ranks={high:0,medium:1,low:2};
       session.suggestions=suggestions.sort((a,b)=>ranks[a.priority]-ranks[b.priority]);
       session.progress.status='complete';return {suggestions:session.suggestions};
-    } catch(error){session.progress.status='failed';throw error;} finally{session.busy=false;}
+    } catch(error){session.progress.status='failed';session.progress.error=error instanceof Error?error.message:'Edge-case generation failed.';throw error;} finally{session.busy=false;}
   }
   async upload(file?:Express.Multer.File,text?:unknown) {
     const chunks=parseUpload(file,text); const cases:TestCase[]=[];
@@ -60,7 +67,7 @@ export class Sessions {
     cases.forEach((c,i)=>c.id=`TC-${String(i+1).padStart(3,'0')}`);
     const sessionId=randomUUID();
     for(const [id,s] of this.sessions) if(!s.busy && Date.now()-s.created>4*3600000) this.sessions.delete(id);
-    this.sessions.set(sessionId,{testCases:cases,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle'},created:Date.now()});
+    this.sessions.set(sessionId,{testCases:cases,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle',error:''},created:Date.now()});
     return {sessionId,testCases:cases};
   }
 }

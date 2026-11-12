@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: blindspot
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm run build
+    startCommand: npm start -w backend
+    healthCheckPath: /api/sessions/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.3
+      - key: CLAUDE_MODEL
+        value: claude-sonnet-5-5
+      - key: ANTHROPIC_API_KEY
+        sync: false
