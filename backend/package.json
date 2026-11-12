@@ -1,0 +1,30 @@
+{
+  "name": "@maryada/backend",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"tsc -p tsconfig.json --watch\" \"node --watch dist/main.js\"",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "test": "node --import tsx --test test/*.test.ts",
+    "predev": "npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@faker-js/faker": "^10.6.0",
+    "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.3"
+  }
+}

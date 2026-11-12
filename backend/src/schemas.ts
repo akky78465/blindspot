@@ -1,0 +1,15 @@
+import { z } from 'zod';
+export const priority = z.enum(['high','medium','low']);
+export const categories = ['boundary','null_empty','format','length','special_chars','date_time','state_transition','permissions','concurrency','security','domain'] as const;
+const strings = z.array(z.string());
+export const testCaseSchema = z.object({id:z.string(),title:z.string(),feature:z.string().optional(),preconditions:strings,steps:strings,inputs:z.array(z.object({field:z.string(),value:z.string(),type:z.string().optional()})),expectedResult:z.string(),priority:priority.optional(),type:z.enum(['positive','negative']),sourceRef:z.string()});
+export const normalizedSchema = z.object({testCases:z.array(testCaseSchema).min(1)});
+export const featureMapSchema = z.object({features:z.array(z.object({id:z.string(),name:z.string().min(1),description:z.string(),fields:z.array(z.object({name:z.string(),inferredType:z.string(),inferredConstraints:strings})),rules:strings,flows:strings,testCaseIds:strings,coveredCategories:z.array(z.enum(categories)),uncoveredCategories:z.array(z.enum(categories))})).min(1)});
+export const kinds = ['literal','number','boundary','invalid_length','long_string','empty','null','whitespace','unicode','special_chars','sql_injection','xss','invalid_email','invalid_phone','invalid_date','date','email','phone','name','duplicate'] as const;
+export const dataSpecSchema = z.object({field:z.string(),kind:z.enum(kinds),params:z.object({value:z.union([z.string(),z.number(),z.boolean(),z.null()]).optional(),min:z.number().optional(),max:z.number().optional(),offset:z.number().optional(),length:z.number().int().min(0).max(10000).optional(),side:z.enum(['min','max']).optional()}).optional()});
+export const suggestionSchema = z.object({id:z.string(),featureId:z.string(),title:z.string(),category:z.enum(categories),priority,rationale:z.string(),preconditions:strings,steps:strings,dataSpec:z.array(dataSpecSchema),expectedResult:z.string()});
+export const suggestionsSchema = z.object({suggestions:z.array(suggestionSchema)});
+export type TestCase = z.infer<typeof testCaseSchema>;
+export type FeatureMap = z.infer<typeof featureMapSchema>;
+export type Suggestion = z.infer<typeof suggestionSchema>;
+export type DataSpec = z.infer<typeof dataSpecSchema>;

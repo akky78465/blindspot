@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.angular/
+.env
+backend/.env
+*.log
+playwright-report/
+test-results/
+e2e/*.png
+frontend/public/samples/

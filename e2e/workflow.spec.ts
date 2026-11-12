@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+import ExcelJS from 'exceljs';
+test('real API upload → map → suggestions → Excel download',async({page})=>{
+const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('/');await page.locator('input[type=file]').setInputFiles('samples/service-request-testcases.xlsx');
+await page.getByRole('button',{name:'Analyze test cases'}).click();await expect(page.getByText('Login with valid credentials',{exact:true})).toBeVisible();
+await page.getByRole('button',{name:'Map features'}).click();await expect(page.getByLabel('Feature name').first()).toHaveValue('Member login');
+await page.getByLabel('Feature name').first().fill('Member login access');
+await page.getByText('Review test case assignments').click();await page.locator('#case-TC-002').selectOption('f1');await page.locator('#case-TC-002').selectOption('f2');
+await page.getByRole('button',{name:'Find edge cases'}).click();await expect(page.getByRole('heading',{name:'Reject empty password'})).toBeVisible();
+await page.getByRole('button',{name:'Select all high priority'}).click();await page.getByRole('button',{name:'Review export (2)'}).click();
+const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download Excel'}).click();const file=await download;const path=await file.path();const book=new ExcelJS.Workbook();await book.xlsx.readFile(path!);expect(book.worksheets.map(s=>s.name)).toEqual(['Edge Cases','Test Data','Summary']);expect(book.getWorksheet('Edge Cases')?.rowCount).toBe(3);expect(errors).toEqual([]);
+});
+test('mobile upload layout and actionable server errors',async({page})=>{
+await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('heading',{name:'Bring your existing tests'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+await page.screenshot({path:'e2e/mobile.png',fullPage:true});
+await page.route('**/api/sessions/upload',r=>r.fulfill({status:503,json:{message:'Set ANTHROPIC_API_KEY in backend/.env, then restart the API.'}}));
+await page.getByLabel('Or, start with plain text').fill('Login with valid credentials');await page.getByRole('button',{name:'Analyze test cases'}).click();await expect(page.getByRole('alert')).toContainText('ANTHROPIC_API_KEY');
+});
+test('desktop upload screen',async({page})=>{await page.setViewportSize({width:1440,height:1050});await page.goto('/');await page.screenshot({path:'e2e/desktop.png',fullPage:true});});
