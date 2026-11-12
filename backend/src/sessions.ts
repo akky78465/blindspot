@@ -42,20 +42,30 @@ export class Sessions {
     if(!session.featureMap) throw new BadRequestException('Create the feature map first.');
     session.busy=true;
     session.progress={completed:0,total:session.featureMap.features.length,current:'',status:'running',error:''};
-    const suggestions:Suggestion[]=[];
-    try {
-      for(const feature of session.featureMap.features) {
-        session.progress.current=feature.name;
-        const cases=session.testCases.filter(c=>feature.testCaseIds.includes(c.id));
-        const result=await this.claude.structured(suggestionsSchema,edgesPrompt(feature,cases));
-        const seen=new Set(cases.map(c=>c.title.trim().toLowerCase()));
-        for(const suggestion of result.suggestions){
-          const title=suggestion.title.trim().toLowerCase();
-          if(seen.has(title)) continue;seen.add(title);
-          suggestions.push({...suggestion,id:`EC-${String(suggestions.length+1).padStart(3,'0')}`,featureId:feature.id});
-        }
-        session.progress.completed++;
+    const features=session.featureMap.features;
+    const results:Suggestion[][]=new Array(features.length);
+    const running=new Set<string>();
+    const limit=Math.max(1,Number(process.env.EDGE_CONCURRENCY)||4);
+    let next=0,failed=false;
+    const worker=async()=>{
+      while(!failed && next<features.length){
+        const index=next++;const feature=features[index];
+        running.add(feature.name);session.progress.current=[...running].join(', ');
+        try {
+          const cases=session.testCases.filter(c=>feature.testCaseIds.includes(c.id));
+          const result=await this.claude.structured(suggestionsSchema,edgesPrompt(feature,cases));
+          const seen=new Set(cases.map(c=>c.title.trim().toLowerCase()));
+          results[index]=result.suggestions.filter(s=>{const title=s.title.trim().toLowerCase();if(seen.has(title)) return false;seen.add(title);return true;})
+            .map(s=>({...s,featureId:feature.id}));
+          session.progress.completed++;
+        } catch(error){failed=true;throw error;}
+        finally {running.delete(feature.name);session.progress.current=[...running].join(', ');}
       }
+    };
+    try {
+      await Promise.all(Array.from({length:Math.min(limit,features.length)},worker));
+      // IDs are assigned in feature order after all calls finish, so output is identical to sequential generation.
+      const suggestions=results.flat().map((s,i)=>({...s,id:`EC-${String(i+1).padStart(3,'0')}`}));
       const ranks={high:0,medium:1,low:2};
       session.suggestions=suggestions.sort((a,b)=>ranks[a.priority]-ranks[b.priority]);
       session.progress.status='complete';return {suggestions:session.suggestions};

@@ -61,7 +61,7 @@ Backend tests cover upload parsing, PII masking, normalization storage, feature 
 
 Upload normalization batches spreadsheets into 30-row chunks. Files are limited to 5 MB, 600 rows, and 500,000 extracted characters; pasted text is limited to 100,000 characters. Source references preserve actual sheet row numbers. Claude responses use a forced tool with a Zod-derived JSON schema; validation failures retry once with the error message. SDK transport retries are separate. Exact duplicate titles are filtered locally; semantic deduplication depends on Claude and still needs human review. Suggestions are capped at 18 per feature to bound output size.
 
-Feature edits require every existing case to belong to exactly one feature. Generation is sequential with an observable progress endpoint and a per-session lock. Failed generation does not publish partial results. Editing features clears old suggestions. Moving a test case retains the feature’s inferred coverage metadata; review the map or regenerate it if assignments materially change the analysis.
+Feature edits require every existing case to belong to exactly one feature. Features are analyzed in parallel (up to `EDGE_CONCURRENCY`, default 4) with an observable progress endpoint and a per-session lock. Suggestion IDs are assigned in feature order, so results match sequential generation. Failed generation does not publish partial results. Editing features clears old suggestions. Moving a test case retains the feature’s inferred coverage metadata; review the map or regenerate it if assignments materially change the analysis.
 
 ## Synthetic data and coverage
 
