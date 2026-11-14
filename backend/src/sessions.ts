@@ -1,22 +1,24 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { ClaudeClient } from './claude';
+import { LlmRouter } from './llm/router';
+import { newTotals, recordUsage, Role, Usage, UsageTotals } from './llm/types';
+import { normalizeRow } from './normalizer';
 import { suggestionsSchema, featureMapSchema, normalizedSchema, TestCase, FeatureMap, Suggestion } from './schemas';
 import { parseUpload } from './upload';
-import { edgesPrompt } from './prompts/edges';
+import { edgeCap, edgesPrompt } from './prompts/edges';
 import { featuresPrompt } from './prompts/features';
 import { normalizePrompt } from './prompts/normalize';
-export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggestions:Suggestion[]; busy:boolean; progress:{completed:number;total:number;current:string;status:string;error:string};created:number}
+export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggestions:Suggestion[]; busy:boolean; progress:{completed:number;total:number;current:string;status:string;error:string};created:number; usage:UsageTotals}
 @Injectable()
 export class Sessions {
   readonly sessions = new Map<string,Session>();
-  constructor(private readonly claude:ClaudeClient) {}
+  constructor(private readonly llm:LlmRouter) {}
   get(id:string) {const s=this.sessions.get(id);if(!s) throw new NotFoundException('Session not found. Upload your cases again.');return s;}
   async mapFeatures(id:string) {
     const session=this.get(id);
     if(session.busy) throw new ConflictException('An analysis is already running.');
     session.busy=true;
-    try {const map=await this.claude.structured(featureMapSchema,featuresPrompt(session.testCases));return this.saveMap(id,map,true);}
+    try {const map=await this.llm.structured('map',featureMapSchema,featuresPrompt(session.testCases),(r,u)=>recordUsage(session.usage,r,u));return this.saveMap(id,map,true);}
     finally {session.busy=false;}
   }
   saveMap(id:string,body:unknown,internal=false) {
@@ -53,10 +55,12 @@ export class Sessions {
         running.add(feature.name);session.progress.current=[...running].join(', ');
         try {
           const cases=session.testCases.filter(c=>feature.testCaseIds.includes(c.id));
-          const result=await this.claude.structured(suggestionsSchema,edgesPrompt(feature,cases));
+          const result=await this.llm.structured('edges',suggestionsSchema,edgesPrompt(feature,cases),(r,u)=>recordUsage(session.usage,r,u));
           const seen=new Set(cases.map(c=>c.title.trim().toLowerCase()));
-          results[index]=result.suggestions.filter(s=>{const title=s.title.trim().toLowerCase();if(seen.has(title)) return false;seen.add(title);return true;})
-            .map(s=>({...s,featureId:feature.id}));
+          const covered=new Set<string>(feature.coveredCategories);
+          // Local gate: drop duplicate titles and already-covered categories ("domain" is exempt because the prompt asks for extra domain gaps).
+          results[index]=result.suggestions.filter(s=>{const title=s.title.trim().toLowerCase();if(seen.has(title)) return false;if(s.category!=='domain' && covered.has(s.category)) return false;seen.add(title);return true;})
+            .slice(0,edgeCap(feature)).map(s=>({...s,featureId:feature.id}));
           session.progress.completed++;
         } catch(error){failed=true;throw error;}
         finally {running.delete(feature.name);session.progress.current=[...running].join(', ');}
@@ -72,12 +76,20 @@ export class Sessions {
     } catch(error){session.progress.status='failed';session.progress.error=error instanceof Error?error.message:'Edge-case generation failed.';throw error;} finally{session.busy=false;}
   }
   async upload(file?:Express.Multer.File,text?:unknown) {
-    const chunks=parseUpload(file,text); const cases:TestCase[]=[];
-    for(const chunk of chunks) {const result=await this.claude.structured(normalizedSchema,normalizePrompt(chunk)); cases.push(...result.testCases);}
+    const items=parseUpload(file,text).flat(); const cases:TestCase[]=[]; const usage=newTotals();
+    const sink=(role:Role,u:Usage)=>recordUsage(usage,role,u);
+    // Rows that already look like test cases are mapped in code; only the rest pay for a model call, in 30-item chunks.
+    let pending:unknown[]=[];
+    const flush=async()=>{
+      for(let i=0;i<pending.length;i+=30){const result=await this.llm.structured('normalize',normalizedSchema,normalizePrompt(pending.slice(i,i+30)),sink);cases.push(...result.testCases);}
+      pending=[];
+    };
+    for(const item of items){const direct=normalizeRow(item);if(direct){await flush();cases.push(direct);}else pending.push(item);}
+    await flush();
     cases.forEach((c,i)=>c.id=`TC-${String(i+1).padStart(3,'0')}`);
     const sessionId=randomUUID();
     for(const [id,s] of this.sessions) if(!s.busy && Date.now()-s.created>4*3600000) this.sessions.delete(id);
-    this.sessions.set(sessionId,{testCases:cases,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle',error:''},created:Date.now()});
+    this.sessions.set(sessionId,{testCases:cases,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle',error:''},created:Date.now(),usage});
     return {sessionId,testCases:cases};
   }
 }

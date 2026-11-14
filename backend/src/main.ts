@@ -5,7 +5,9 @@ import { join, resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { Module, Controller, Post, Body, UploadedFile, UseInterceptors, Get, Put, Param, Res } from '@nestjs/common';
 import { FileInterceptor, NestExpressApplication } from '@nestjs/platform-express';
-import { ClaudeClient } from './claude';
+import { AnthropicProvider } from './llm/anthropic';
+import { LlmRouter } from './llm/router';
+import { LLM_PROVIDER } from './llm/types';
 import { Response } from 'express';
 import { exportWorkbook } from './export';
 import { Sessions } from './sessions';
@@ -18,11 +20,11 @@ class SessionsController {
   @Post(':id/feature-map') map(@Param('id') id:string){return this.sessions.mapFeatures(id);}
   @Put(':id/feature-map') update(@Param('id') id:string,@Body() body:unknown){return this.sessions.saveMap(id,body);}
   @Post(':id/edge-cases') edges(@Param('id') id:string){return this.sessions.beginEdges(id);}
-  @Get(':id/progress') progress(@Param('id') id:string){const s=this.sessions.get(id);return {...s.progress,suggestions:s.suggestions};}
+  @Get(':id/progress') progress(@Param('id') id:string){const s=this.sessions.get(id);return {...s.progress,usage:s.usage,suggestions:s.suggestions};}
   @Post(':id/export') async download(@Param('id') id:string,@Body() body:unknown,@Res() res:Response){const book=await exportWorkbook(this.sessions.get(id),body);res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition','attachment; filename="maryada-edge-cases.xlsx"');await book.xlsx.write(res);res.end();}
   @Get('health') health(){return {ok:true};}
 }
-@Module({controllers:[SessionsController],providers:[ClaudeClient,Sessions]})
+@Module({controllers:[SessionsController],providers:[{provide:LLM_PROVIDER,useClass:AnthropicProvider},LlmRouter,Sessions]})
 class AppModule {}
 async function bootstrap(){
   const app=await NestFactory.create<NestExpressApplication>(AppModule);
