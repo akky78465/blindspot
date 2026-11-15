@@ -5,14 +5,15 @@ import {MatStepperModule} from '@angular/material/stepper';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatChipsModule} from '@angular/material/chips';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {categories} from './models';
 import {Store} from './store';
 @Component({selector:'app-root',standalone:true,imports:[FormsModule,MatButtonModule,MatStepperModule,MatCheckboxModule,MatChipsModule,MatProgressBarModule],templateUrl:'./app.html',changeDetection:ChangeDetectionStrategy.OnPush})
 export class App {
   private readonly injector=inject(Injector);
-  readonly store=inject(Store);readonly file=signal<File|null>(null);text='';readonly category=signal('all');readonly priority=signal('all');readonly stage=signal(0);readonly drag=signal(false);
-  readonly categories=computed(()=>[...new Set(this.store.suggestions().map(s=>s.category))]);
+  readonly store=inject(Store);readonly file=signal<File|null>(null);text='';readonly category=signal('all');readonly priority=signal('all');readonly stage=signal(0);readonly drag=signal(false);readonly allCategories=categories;
+  readonly categories=computed(()=>{const analyzed=new Set(this.store.map().features.filter(f=>f.selected).map(f=>f.id));return [...new Set(this.store.suggestions().filter(s=>analyzed.has(s.featureId)).map(s=>s.category))];});
   readonly visible=computed(()=>this.store.suggestions().filter(s=>(this.category()==='all'||s.category===this.category())&&(this.priority()==='all'||s.priority===this.priority())));
-  readonly groups=computed(()=>this.store.map().features.map(f=>({...f,items:this.visible().filter(s=>s.featureId===f.id)})).filter(f=>f.items.length));
+  readonly groups=computed(()=>this.store.map().features.filter(f=>f.selected).map(f=>({...f,items:this.visible().filter(s=>s.featureId===f.id)})).filter(f=>f.items.length));
   newSet(){return new Set<string>();}
   choose(file:File|undefined){if(!file)return;if(!/\.(xlsx|csv)$/i.test(file.name)||file.size>5*1024*1024){this.store.error.set('Choose an .xlsx or .csv file up to 5 MB.');return;}this.file.set(file);this.text='';this.store.error.set('');}
   pick(event:Event){const target=event.target;if(target instanceof HTMLInputElement)this.choose(target.files?.[0]);}

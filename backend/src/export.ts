@@ -24,8 +24,10 @@ export async function exportWorkbook(session:Session,body:unknown) {
   summary.addRow(['Selected suggestions','All',0,selected.length]);
   for(const f of session.featureMap?.features ?? []) {
     const added=selected.filter(s=>s.featureId===f.id);
+    const covered=new Set(f.coveredCategories).size;
+    if(f.selected===false) summary.addRow(['Not analyzed',f.name,covered,'']);
     summary.addRow(['Case count',f.name,f.testCaseIds.length,f.testCaseIds.length+added.length]);
-    summary.addRow(['Categories represented (of 11)',f.name,new Set(f.coveredCategories).size,new Set([...f.coveredCategories,...added.map(s=>s.category)]).size]);
+    summary.addRow(['Categories represented (of 11)',f.name,covered,new Set([...f.coveredCategories,...added.map(s=>s.category)]).size]);
   }
   for(const category of categories) summary.addRow(['Selected category',category,'',selected.filter(s=>s.category===category).length]);
   summary.addRow(['Note','Coverage is inferred category representation, not executed tests or proven completeness.']);

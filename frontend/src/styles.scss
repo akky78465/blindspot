@@ -40,5 +40,8 @@ html { @include mat.theme((color:(primary:mat.$red-palette,tertiary:mat.$red-pal
 .tag, .upload-icon, .export-icon { color: var(--primary-ink); }
 .note-icon { color: var(--primary); }
 :focus-visible { outline-color: var(--primary); }
+.feature-card mat-checkbox { display: block; margin-bottom: 10px; }
+.feature-card mat-chip-listbox { display: block; margin: 8px 0 4px; }
+.gap-msg { color: var(--danger); font-size: 12px; margin: 8px 0 0; }
 
 .mat-step-icon-selected, .mat-step-icon-state-done, .mat-step-icon-state-edit { color: var(--ink) !important; }

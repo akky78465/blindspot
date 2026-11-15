@@ -6,6 +6,11 @@ import { parseUpload } from './upload';
 import { edgesPrompt } from './prompts/edges';
 import { featuresPrompt } from './prompts/features';
 import { normalizePrompt } from './prompts/normalize';
+function assertAnalyzable(map:FeatureMap) {
+  const chosen=map.features.filter(f=>f.selected);
+  if(!chosen.length) throw new BadRequestException('Select at least one feature for edge-case analysis.');
+  if(chosen.some(f=>!f.uncoveredCategories.length)) throw new BadRequestException('Each selected feature needs at least one gap. Mark a gap or uncheck the feature.');
+}
 export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggestions:Suggestion[]; busy:boolean; progress:{completed:number;total:number;current:string;status:string;error:string};created:number}
 @Injectable()
 export class Sessions {
@@ -27,12 +32,14 @@ export class Sessions {
     const map=parsed.data;const ids=map.features.flatMap(f=>f.testCaseIds);
     if(new Set(map.features.map(f=>f.id)).size!==map.features.length || ids.length!==session.testCases.length || new Set(ids).size!==ids.length || ids.some(id=>!session.testCases.some(c=>c.id===id))) throw new BadRequestException('Each test case must belong to exactly one feature; feature IDs must be unique.');
     if(map.features.some(f=>new Set([...f.coveredCategories,...f.uncoveredCategories]).size!==11 || f.coveredCategories.some(c=>f.uncoveredCategories.includes(c)))) throw new BadRequestException('Feature coverage categories must be complete and disjoint.');
+    if(!internal) assertAnalyzable(map);
     session.featureMap=map;session.suggestions=[];return map;
   }
   beginEdges(id:string) {
     const session=this.get(id);
     if(session.busy) throw new ConflictException('An analysis is already running.');
     if(!session.featureMap) throw new BadRequestException('Create the feature map first.');
+    assertAnalyzable(session.featureMap);
     void this.edges(id).catch(()=>undefined);
     return {started:true};
   }
@@ -40,9 +47,10 @@ export class Sessions {
     const session=this.get(id);
     if(session.busy) throw new ConflictException('An analysis is already running.');
     if(!session.featureMap) throw new BadRequestException('Create the feature map first.');
+    assertAnalyzable(session.featureMap);
     session.busy=true;
-    session.progress={completed:0,total:session.featureMap.features.length,current:'',status:'running',error:''};
-    const features=session.featureMap.features;
+    const features=session.featureMap.features.filter(f=>f.selected);
+    session.progress={completed:0,total:features.length,current:'',status:'running',error:''};
     const results:Suggestion[][]=new Array(features.length);
     const running=new Set<string>();
     const limit=Math.max(1,Number(process.env.EDGE_CONCURRENCY)||4);
@@ -55,7 +63,7 @@ export class Sessions {
           const cases=session.testCases.filter(c=>feature.testCaseIds.includes(c.id));
           const result=await this.claude.structured(suggestionsSchema,edgesPrompt(feature,cases));
           const seen=new Set(cases.map(c=>c.title.trim().toLowerCase()));
-          results[index]=result.suggestions.filter(s=>{const title=s.title.trim().toLowerCase();if(seen.has(title)) return false;seen.add(title);return true;})
+          results[index]=result.suggestions.filter(s=>feature.uncoveredCategories.includes(s.category)).filter(s=>{const title=s.title.trim().toLowerCase();if(seen.has(title)) return false;seen.add(title);return true;})
             .map(s=>({...s,featureId:feature.id}));
           session.progress.completed++;
         } catch(error){failed=true;throw error;}
