@@ -5,21 +5,28 @@ import {MatStepperModule} from '@angular/material/stepper';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatChipsModule} from '@angular/material/chips';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {categories,ExportFormat} from './models';
 import {Store} from './store';
 import {Api,RailListCase,RailProject,RailSection,RailSuite} from './api';
 @Component({selector:'app-root',standalone:true,imports:[FormsModule,MatButtonModule,MatStepperModule,MatCheckboxModule,MatChipsModule,MatProgressBarModule],templateUrl:'./app.html',changeDetection:ChangeDetectionStrategy.OnPush})
 export class App {
   private readonly injector=inject(Injector);
   private readonly api=inject(Api);
-  readonly store=inject(Store);readonly file=signal<File|null>(null);readonly testrailFile=signal<File|null>(null);text='';readonly category=signal('all');readonly priority=signal('all');readonly stage=signal(0);readonly drag=signal(false);
+  readonly store=inject(Store);readonly file=signal<File|null>(null);readonly testrailFile=signal<File|null>(null);text='';readonly category=signal('all');readonly priority=signal('all');readonly format=signal<ExportFormat>('xlsx');readonly stage=signal(0);readonly drag=signal(false);readonly allCategories=categories;
+  readonly exportFormats:{id:ExportFormat;label:string}[]=[{id:'xlsx',label:'Excel'},{id:'gherkin',label:'Gherkin'},{id:'playwright',label:'Playwright'}];
+  readonly exportView=computed(()=>({
+    xlsx:{blurb:'Your selected edge cases and generated synthetic data, together in one workbook.',button:'↓ Download Excel',busy:'Preparing your Excel workbook',items:[{title:'01 · Edge Cases',detail:'Steps, rationale, priority, and expected results'},{title:'02 · Test Data',detail:'Repeatable synthetic values for each input'},{title:'03 · Summary',detail:'Feature counts and inferred category coverage'}]},
+    gherkin:{blurb:'Your selected edge cases as Cucumber scenarios, with synthetic values ready for the next run.',button:'↓ Download Gherkin',busy:'Preparing your Gherkin feature',items:[{title:'01 · Feature',detail:'One feature for each product area in the selection'},{title:'02 · Scenario',detail:'Given, When, and Then for every selected edge case'},{title:'03 · Examples',detail:'Synthetic values in a table when the case has data'}]},
+    playwright:{blurb:'A Playwright skeleton with one test per case. Locators are left for your team to fill in.',button:'↓ Download Playwright',busy:'Preparing your Playwright spec',items:[{title:'01 · Spec',detail:'One test() for each selected edge case'},{title:'02 · Steps',detail:'Each action is a test.step ready to fill in'},{title:'03 · Data',detail:'Synthetic values in a const data block'}]},
+  })[this.format()]);
   readonly railOpen=signal(false);readonly projectQuery=signal('');readonly caseQuery=signal('');
   readonly railProjects=signal<RailProject[]>([]);readonly railSuites=signal<RailSuite[]>([]);readonly railSections=signal<RailSection[]>([]);readonly railCases=signal<RailListCase[]>([]);
   readonly railSelected=signal(new Set<number>());readonly railProject=signal<number|null>(null);readonly railSuite=signal<number|null>(null);readonly railSection=signal<number|null>(null);readonly railNotice=signal('');
   readonly filteredProjects=computed(()=>{const query=this.projectQuery().trim().toLowerCase();const projects=this.railProjects();const matched=projects.filter(project=>!query||project.name.toLowerCase().includes(query));const selected=projects.find(project=>project.id===this.railProject());return selected&&!matched.some(project=>project.id===selected.id)?[selected,...matched]:matched;});
   readonly filteredCases=computed(()=>{const query=this.caseQuery().trim().toLowerCase();return this.railCases().filter(item=>!query||item.title.toLowerCase().includes(query)||`c${item.id}`.includes(query)||item.section.toLowerCase().includes(query));});
-  readonly categories=computed(()=>[...new Set(this.store.suggestions().map(s=>s.category))]);
+  readonly categories=computed(()=>{const analyzed=new Set(this.store.map().features.filter(f=>f.selected).map(f=>f.id));return [...new Set(this.store.suggestions().filter(s=>analyzed.has(s.featureId)).map(s=>s.category))];});
   readonly visible=computed(()=>this.store.suggestions().filter(s=>(this.category()==='all'||s.category===this.category())&&(this.priority()==='all'||s.priority===this.priority())));
-  readonly groups=computed(()=>this.store.map().features.map(f=>({...f,items:this.visible().filter(s=>s.featureId===f.id)})).filter(f=>f.items.length));
+  readonly groups=computed(()=>this.store.map().features.filter(f=>f.selected).map(f=>({...f,items:this.visible().filter(s=>s.featureId===f.id)})).filter(f=>f.items.length));
   newSet(){return new Set<string>();}
   newNumberSet(){return new Set<number>();}
   openTestRail(){this.railOpen.set(true);if(this.railProjects().length)return;void this.store.run('Loading TestRail',async()=>{this.railProjects.set(await this.apiProjects());});}
@@ -40,6 +47,6 @@ export class App {
   uploadTestRail(){const file=this.testrailFile();if(!file)return;void this.store.run('Understanding your TestRail cases',()=>this.store.uploadTestRail(file));}
   featureMap(){void this.store.run('Mapping features and coverage',async()=>{await this.store.buildMap();afterNextRender(()=>this.stage.set(1),{injector:this.injector});});}
   edges(){void this.store.run('Finding missing edge cases',async()=>{await this.store.generate();afterNextRender(()=>this.stage.set(2),{injector:this.injector});});}
-  download(){void this.store.run('Preparing your Excel workbook',()=>this.store.download());}
+  download(){void this.store.run(this.exportView().busy,()=>this.store.download(this.format()));}
   featureFor(id:string){return this.store.map().features.find(f=>f.testCaseIds.includes(id))?.id ?? '';}
 }

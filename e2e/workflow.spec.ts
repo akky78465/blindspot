@@ -7,6 +7,16 @@ await page.getByRole('button',{name:'Analyze test cases'}).click();await expect(
 await page.getByRole('button',{name:'Map features'}).click();await expect(page.getByLabel('Feature name').first()).toHaveValue('Member login');
 await page.getByLabel('Feature name').first().fill('Member login access');
 await page.getByText('Review test case assignments').click();await page.locator('#case-TC-002').selectOption('f1');await page.locator('#case-TC-002').selectOption('f2');
+await expect(page.locator('.coverage-label').first()).toContainText('0 / 11');
+await page.getByRole('option',{name:'boundary',exact:true}).first().click();
+await expect(page.locator('.coverage-label').first()).toContainText('1 / 11');
+const include=page.getByRole('checkbox',{name:'Include in edge-case analysis'});
+await include.nth(1).click();await expect(include.nth(1)).not.toBeChecked();
+await page.getByRole('button',{name:'Clear',exact:true}).click();
+await expect(include.first()).not.toBeChecked();
+await expect(page.getByRole('button',{name:'Find edge cases'})).toBeDisabled();
+await page.getByRole('button',{name:'Select all',exact:true}).click();
+await expect(include.nth(1)).toBeChecked();
 await page.getByRole('button',{name:'Find edge cases'}).click();await expect(page.getByRole('heading',{name:'Reject empty password'})).toBeVisible();
 await page.getByRole('button',{name:'Select all high priority'}).click();await page.getByRole('button',{name:'Review export (2)'}).click();
 const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download Excel'}).click();const file=await download;const path=await file.path();const book=new ExcelJS.Workbook();await book.xlsx.readFile(path!);expect(book.worksheets.map(s=>s.name)).toEqual(['Edge Cases','Test Data','Summary']);expect(book.getWorksheet('Edge Cases')?.rowCount).toBe(3);expect(errors).toEqual([]);

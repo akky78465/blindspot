@@ -4,6 +4,7 @@ import { parseUpload } from '../src/upload';
 import { chunkApiCases, parseTestRail } from '../src/testrail';
 import { Sessions } from '../src/sessions';
 import { ClaudeClient } from '../src/claude';
+import { edgeRunner } from './fixtures';
 import { z } from 'zod';
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -71,7 +72,7 @@ test('rejects files that are not TestRail exports', () => {
 
 test('TestRail upload stores a session through the existing normalizer', async () => {
   class Stub extends ClaudeClient { override async structured<T>(schema: z.ZodType<T>) { return schema.parse({ testCases: [{ id: 'original', title: 'Valid login', preconditions: [], steps: ['Open the login page'], inputs: [], expectedResult: 'Dashboard', type: 'positive', sourceRef: 'TestRail C10 · Master / Login' }] }); } }
-  const sessions = new Sessions(new Stub());
+  const sessions = new Sessions(new Stub(), edgeRunner(new Stub()));
   const result = await sessions.uploadTestRail(file('suite.xml', xml));
   assert.equal(result.testCases.length, 1);
   assert.equal(result.testCases[0].id, 'TC-001');

@@ -13,14 +13,14 @@ cp backend/.env.example backend/.env
 npm run dev
 ```
 
-Open http://localhost:4200. If that port is occupied, run the frontend separately with `npm start -w frontend -- --port 4207` and open http://localhost:4207 (API requests use the dev proxy). The NestJS API listens on http://127.0.0.1:3000. Keep the key on the backend; never enter it in browser code. To run separately:
+Open http://localhost:4200. If that port is occupied, run the frontend separately with `` and open http://localhost:4207 (API requests use the dev proxy). The NestJS API listens on http://127.0.0.1:3000. Keep the key on the backend; never enter it in browser code. To run separately:
 
 ```sh
 npm run dev -w backend
 npm start -w frontend
 ```
 
-`CLAUDE_MODEL` defaults to `claude-sonnet-5-5`, exactly as requested. The configured model must be available to your account **and support forced tool use**. If the provider rejects that combination, set `CLAUDE_MODEL` to an available model that supports it; Maryada does not silently switch models or use fabricated AI responses. Model availability and a live Claude run have not been verified without credentials.
+`CLAUDE_MODEL` defaults to `claude-sonnet-5`, exactly as requested. The configured model must be available to your account **and support forced tool use**. If the provider rejects that combination, set `CLAUDE_MODEL` to an available model that supports it; Blindpot does not silently switch models or use fabricated AI responses. Model availability and a live Claude run have not been verified without credentials.
 
 ## Validation
 

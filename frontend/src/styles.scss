@@ -40,6 +40,89 @@ html { @include mat.theme((color:(primary:mat.$red-palette,tertiary:mat.$red-pal
 .tag, .upload-icon, .export-icon { color: var(--primary-ink); }
 .note-icon { color: var(--primary); }
 :focus-visible { outline-color: var(--primary); }
+.feature-card mat-checkbox { display: block; margin-bottom: 10px; }
+.feature-card mat-chip-listbox { display: block; margin: 8px 0 4px; }
+.gap-msg { color: var(--danger); font-size: 12px; margin: 8px 0 0; }
+.mat-step-icon-selected { color: var(--ink) !important; }
+.review-note { color: var(--ink); white-space: pre-line; margin-top: 8px; }
+.export-format { display: flex; justify-content: center; margin: 0 auto 8px; }
+.export-format .filter-row { justify-content: center; }
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.filter-row + .filter-row { margin-top: 14px; }
+.filter-row .filter-label { margin: 0; min-width: 76px; }
+.choice-list, .feature-card mat-chip-listbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  --mat-chip-elevated-container-color: #fff;
+  --mat-chip-elevated-selected-container-color: var(--primary-ink);
+  --mat-chip-label-text-color: var(--ink);
+  --mat-chip-selected-label-text-color: #fff;
+  --mat-chip-with-icon-selected-icon-color: #fff;
+  --mat-chip-outline-color: var(--line);
+}
+.choice-list .mdc-evolution-chip__graphic,
+.choice-list .mdc-evolution-chip__checkmark,
+.choice-list .mdc-evolution-chip__checkmark-svg,
+.feature-card .mdc-evolution-chip__graphic,
+.feature-card .mdc-evolution-chip__checkmark,
+.feature-card .mdc-evolution-chip__checkmark-svg { display: none !important; width: 0 !important; height: 0 !important; }
+.choice-list .mat-mdc-chip,
+.feature-card .mat-mdc-chip {
+  border: 1px solid var(--line) !important;
+  background: #fff !important;
+  border-radius: 999px !important;
+  height: 36px;
+  box-shadow: none !important;
+}
+.choice-list .mat-mdc-chip,
+.feature-card .mat-mdc-chip { margin: 5px 3px !important; }
+.choice-list .mdc-evolution-chip__cell--primary,
+.feature-card .mdc-evolution-chip__cell--primary,
+.choice-list .mdc-evolution-chip__action--primary,
+.feature-card .mdc-evolution-chip__action--primary {
+  overflow: hidden !important;
+  scrollbar-width: none;
+}
+.choice-list .mdc-evolution-chip__action--primary,
+.feature-card .mdc-evolution-chip__action--primary { padding: 0 14px !important; }
+.choice-list .mat-mdc-chip-touch-target,
+.feature-card .mat-mdc-chip-touch-target {
+  height: 100% !important;
+  top: 0 !important;
+  transform: none !important;
+}
+.choice-list .mat-mdc-chip .mdc-evolution-chip__text-label,
+.feature-card .mat-mdc-chip .mdc-evolution-chip__text-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.choice-list .mat-mdc-chip:not(.mat-mdc-chip-selected):hover,
+.feature-card .mat-mdc-chip:not(.mat-mdc-chip-selected):hover { background: var(--soft) !important; border-color: #e7b7bb !important; }
+.choice-list .mat-mdc-chip-selected .mdc-evolution-chip__text-label::before,
+.feature-card .mat-mdc-chip-selected .mdc-evolution-chip__text-label::before {
+  content: "";
+  width: 7px;
+  height: 4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translateY(-1px);
+}
+.choice-list .mat-mdc-chip-selected,
+.feature-card .mat-mdc-chip-selected,
+.choice-list .mdc-evolution-chip--selected,
+.feature-card .mdc-evolution-chip--selected {
+  background: var(--primary-ink) !important;
+  border-color: var(--primary-ink) !important;
+}
+.choice-list .mat-mdc-chip-selected .mdc-evolution-chip__text-label,
+.feature-card .mat-mdc-chip-selected .mdc-evolution-chip__text-label,
+.choice-list .mdc-evolution-chip--selected .mdc-evolution-chip__text-label,
+.feature-card .mdc-evolution-chip--selected .mdc-evolution-chip__text-label { color: #fff !important; }
 .testrail{margin-top:28px;padding-top:24px;border-top:1px solid var(--line);display:grid;gap:16px}
 .testrail .eyebrow{margin-bottom:8px}
 .testrail h3{margin-bottom:6px}
@@ -55,5 +138,3 @@ html { @include mat.theme((color:(primary:mat.$red-palette,tertiary:mat.$red-pal
 .rail-case span{display:grid;gap:2px}
 .rail-case small{color:var(--muted);font-size:11px}
 .testrail-file{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-
-.mat-step-icon-selected { color: var(--ink) !important; }
