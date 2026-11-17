@@ -17,6 +17,7 @@
     "@nestjs/swagger": "^11.4.8",
     "dotenv": "^16.6.1",
     "exceljs": "^4.4.0",
+    "openai": "^7.57.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",

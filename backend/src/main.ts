@@ -6,9 +6,11 @@ import { NestFactory } from '@nestjs/core';
 import { Module, Controller, Post, Body, UploadedFile, UseInterceptors, Get, Put, Param, Res, UseGuards } from '@nestjs/common';
 import { FileInterceptor, NestExpressApplication } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiParam, ApiProduces, ApiTags, DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { EDGE_GENERATOR, EDGE_JUDGE, EdgeRunner } from './agents/runner';
 import { ClaudeClient } from './claude';
 import { Response } from 'express';
-import { exportWorkbook } from './export';
+import { exportFormat, exportWorkbook, renderGherkin, renderPlaywright } from './export';
+import { OpenAiJudge } from './openai';
 import { Sessions } from './sessions';
 import { ApiKeyGuard, Public } from './api-key';
 config({path:resolve(__dirname,'../.env')});
@@ -42,20 +44,34 @@ class SessionsController {
   edges(@Param('id') id:string){return this.sessions.beginEdges(id);}
   @Get(':id/progress') @sessionId
   @ApiOperation({summary:'Read generation progress'})
-  @ApiOkResponse({schema:{type:'object',properties:{completed:{type:'number'},total:{type:'number'},current:{type:'string'},status:{type:'string'},error:{type:'string'},suggestions:{type:'array',items:{type:'object'}}}}})
+  @ApiOkResponse({schema:{type:'object',properties:{completed:{type:'number'},total:{type:'number'},current:{type:'string'},status:{type:'string'},error:{type:'string'},review:{type:'string'},suggestions:{type:'array',items:{type:'object'}}}}})
   progress(@Param('id') id:string){const s=this.sessions.get(id);return {...s.progress,suggestions:s.suggestions};}
   @Post(':id/export') @sessionId
-  @ApiOperation({summary:'Download the Excel workbook'})
-  @ApiBody({schema:{type:'object',required:['selectedIds'],properties:{selectedIds:{type:'array',items:{type:'string'},example:['EC-001']}}}})
-  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @ApiOkResponse({description:'Excel workbook',schema:{type:'string',format:'binary'}})
-  async download(@Param('id') id:string,@Body() body:unknown,@Res() res:Response){const book=await exportWorkbook(this.sessions.get(id),body);res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition','attachment; filename="maryada-edge-cases.xlsx"');await book.xlsx.write(res);res.end();}
+  @ApiOperation({summary:'Download selected cases as Excel, Gherkin, or Playwright'})
+  @ApiBody({schema:{type:'object',required:['selectedIds'],properties:{selectedIds:{type:'array',items:{type:'string'},example:['EC-001']},format:{type:'string',enum:['xlsx','gherkin','playwright'],default:'xlsx',description:'Defaults to xlsx when omitted.'}}}})
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/plain')
+  @ApiOkResponse({description:'Excel workbook (.xlsx), Gherkin feature (.feature), or Playwright skeleton (.spec.ts)',schema:{type:'string',format:'binary'}})
+  async download(@Param('id') id:string,@Body() body:unknown,@Res() res:Response){
+    const session=this.sessions.get(id);
+    const format=exportFormat(body);
+    if(format==='gherkin' || format==='playwright'){
+      const filename=format==='gherkin'?'maryada-edge-cases.feature':'maryada-edge-cases.spec.ts';
+      res.setHeader('Content-Type','text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition',`attachment; filename="${filename}"`);
+      res.send(format==='gherkin'?renderGherkin(session,body):renderPlaywright(session,body));
+      return;
+    }
+    const book=await exportWorkbook(session,body);
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition','attachment; filename="maryada-edge-cases.xlsx"');
+    await book.xlsx.write(res);res.end();
+  }
   @Get('health') @Public()
   @ApiOperation({summary:'Health check'})
   @ApiOkResponse({schema:{type:'object',properties:{ok:{type:'boolean',example:true}}}})
   health(){return {ok:true};}
 }
-@Module({controllers:[SessionsController],providers:[ClaudeClient,Sessions,ApiKeyGuard]})
+@Module({controllers:[SessionsController],providers:[ClaudeClient,OpenAiJudge,{provide:EDGE_GENERATOR,useExisting:ClaudeClient},{provide:EDGE_JUDGE,useExisting:OpenAiJudge},EdgeRunner,Sessions,ApiKeyGuard]})
 class AppModule {}
 async function bootstrap(){
   const app=await NestFactory.create<NestExpressApplication>(AppModule);

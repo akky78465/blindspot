@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import {FeatureMap,Progress,TestCase} from './models';
+import {ExportFormat,FeatureMap,Progress,TestCase} from './models';
 @Injectable({providedIn:'root'})
 export class Api {
   private http=inject(HttpClient);
@@ -10,5 +10,5 @@ export class Api {
   save(id:string,map:FeatureMap){return firstValueFrom(this.http.put<FeatureMap>(`/api/sessions/${id}/feature-map`,map));}
   edges(id:string){return firstValueFrom(this.http.post<{started:boolean}>(`/api/sessions/${id}/edge-cases`,{}));}
   progress(id:string){return firstValueFrom(this.http.get<Progress>(`/api/sessions/${id}/progress`));}
-  export(id:string,selectedIds:string[]){return firstValueFrom(this.http.post(`/api/sessions/${id}/export`,{selectedIds},{responseType:'blob'}));}
+  export(id:string,selectedIds:string[],format:ExportFormat='xlsx'){return firstValueFrom(this.http.post(`/api/sessions/${id}/export`,{selectedIds,format},{responseType:'blob'}));}
 }

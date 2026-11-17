@@ -1,2 +1,5 @@
+import { compose } from '../agents/agent';
+import { featureMapper } from '../agents/feature-mapper';
 import { TestCase } from '../schemas';
-export const featuresPrompt = (cases:TestCase[]) => `Group these normalized cases into features. Assign each test case ID to exactly one feature. Infer fields, constraints, rules and flows conservatively; explicitly label assumptions. Classify coverage using the schema categories. Each category must appear in either coveredCategories or uncoveredCategories, never both. Covered means at least one existing case exercises it, not comprehensive coverage. Return the feature map. Data:\n${JSON.stringify(cases)}`;
+
+export const featuresPrompt = (cases: TestCase[]) => compose(featureMapper, cases);
