@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import ExcelJS from 'exceljs';
 test('real API upload → map → suggestions → Excel download',async({page})=>{
 const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-await page.goto('/');await page.locator('input[type=file]').setInputFiles('samples/service-request-testcases.xlsx');
+await page.goto('/');await page.locator('.dropzone input[type=file]').setInputFiles('samples/service-request-testcases.xlsx');
 await page.getByRole('button',{name:'Analyze test cases'}).click();await expect(page.getByText('Login with valid credentials',{exact:true})).toBeVisible();
 await page.getByRole('button',{name:'Map features'}).click();await expect(page.getByLabel('Feature name').first()).toHaveValue('Member login');
 await page.getByLabel('Feature name').first().fill('Member login access');

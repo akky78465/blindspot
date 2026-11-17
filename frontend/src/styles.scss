@@ -40,5 +40,20 @@ html { @include mat.theme((color:(primary:mat.$red-palette,tertiary:mat.$red-pal
 .tag, .upload-icon, .export-icon { color: var(--primary-ink); }
 .note-icon { color: var(--primary); }
 :focus-visible { outline-color: var(--primary); }
+.testrail{margin-top:28px;padding-top:24px;border-top:1px solid var(--line);display:grid;gap:16px}
+.testrail .eyebrow{margin-bottom:8px}
+.testrail h3{margin-bottom:6px}
+.testrail-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+@media(min-width:760px){.testrail{grid-template-columns:1.2fr .8fr;align-items:center}}
+.rail-panel,.testrail-file{grid-column:1 / -1}
+.rail-filters{display:grid;gap:12px}
+@media(min-width:760px){.rail-filters{grid-template-columns:1fr 1fr}}
+.rail-filters label{display:grid;gap:6px;font-size:12px;font-weight:600;color:var(--ink)}
+.rail-filters input,.rail-filters select{font-weight:400}
+.rail-cases{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.rail-case{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--line)}
+.rail-case span{display:grid;gap:2px}
+.rail-case small{color:var(--muted);font-size:11px}
+.testrail-file{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 
 .mat-step-icon-selected, .mat-step-icon-state-done, .mat-step-icon-state-edit { color: var(--ink) !important; }
