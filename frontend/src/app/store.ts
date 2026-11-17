@@ -9,7 +9,10 @@ export class Store {
   readonly selected=signal(new Set<string>());readonly busy=signal('');readonly error=signal('');readonly progress=signal<Progress|null>(null);
   readonly selectedCases=computed(()=>this.suggestions().filter(s=>this.selected().has(s.id)));
   async run(label:string,action:()=>Promise<void>){if(this.busy())return;this.busy.set(label);this.error.set('');try{await action();}catch(e){let message=e instanceof Error?e.message:'Something went wrong. Please try again.';if(e instanceof HttpErrorResponse){if(e.error instanceof Blob){try{message=JSON.parse(await e.error.text()).message;}catch{message='Excel export failed. Please try again.';}}else message=e.error?.message || (e.status===0?'Cannot reach the API. Start the backend and try again.':message);}this.error.set(message);}finally{this.busy.set('');}}
-  async upload(file:File|null,text:string){let body:FormData|{text:string};if(file){body=new FormData();body.append('file',file);}else body={text};const r=await this.api.upload(body);this.session.set(r.sessionId);this.cases.set(r.testCases);this.map.set({features:[]});this.suggestions.set([]);this.selected.set(new Set());}
+  async upload(file:File|null,text:string){let body:FormData|{text:string};if(file){body=new FormData();body.append('file',file);}else body={text};this.remember(await this.api.upload(body));}
+  async uploadTestRail(file:File){const body=new FormData();body.append('file',file);this.remember(await this.api.uploadTestRail(body));}
+  async importTestRail(projectId:number,suiteId:number|null,caseIds:number[]){this.remember(await this.api.importTestRail({projectId,suiteId:suiteId??undefined,caseIds}));}
+  private remember(result:{sessionId:string;testCases:TestCase[]}){this.session.set(result.sessionId);this.cases.set(result.testCases);this.map.set({features:[]});this.suggestions.set([]);this.selected.set(new Set());}
   async buildMap(){this.map.set(await this.api.map(this.session()));}
   rename(id:string,name:string){this.map.update(m=>({features:m.features.map(f=>f.id===id?{...f,name}:f)}));this.suggestions.set([]);this.selected.set(new Set());}
   move(caseId:string,featureId:string){this.map.update(m=>({features:m.features.map(f=>({...f,testCaseIds:[...f.testCaseIds.filter(id=>id!==caseId),...(f.id===featureId?[caseId]:[])]}))}));this.suggestions.set([]);this.selected.set(new Set());}
