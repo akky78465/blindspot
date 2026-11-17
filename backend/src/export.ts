@@ -25,14 +25,51 @@ function oneLine(value:string){return value.replace(/\s+/g,' ').trim();}
 function tag(value:string){return `@${value.trim().replace(/\s+/g,'-').replace(/[^\w.-]/g,'') || 'case'}`;}
 function clauses(keyword:string,lines:string[]){return lines.map(oneLine).filter(Boolean).map((line,i)=>`    ${i===0?keyword:'And'} ${line}`);}
 function cell(value:unknown){return value===null||value===undefined?'':String(value).replace(/\r?\n/g,' ').replace(/\|/g,'\\|');}
-function namedValues(suggestion:Suggestion){
-  const seen=new Map<string,number>();
-  return suggestion.dataSpec.map((spec,i)=>{
-    const base=spec.field.trim() || 'value';
-    const count=(seen.get(base) ?? 0)+1;
-    seen.set(base,count);
-    return {field:count===1?base:`${base}_${count}`,value:generate(spec,`${suggestion.id}:${i}`)};
+function norm(name:string){return name.trim().toLowerCase().replace(/\s+/g,' ');}
+function baselineInputs(session:Session,suggestion:Suggestion){
+  const feature=session.featureMap?.features.find(item=>item.id===suggestion.featureId);
+  const allowed=new Set(feature?.testCaseIds ?? []);
+  const cases=session.testCases.filter(testCase=>!allowed.size || allowed.has(testCase.id));
+  const varied=new Set(suggestion.dataSpec.map(spec=>norm(spec.field)));
+  const score=(testCase:Session['testCases'][number])=>{
+    const inputs=testCase.inputs.filter(input=>input.field.trim());
+    return inputs.filter(input=>varied.has(norm(input.field))).length*100+(testCase.type==='positive'?10:0)+inputs.length;
+  };
+  return [...cases].filter(testCase=>testCase.inputs.some(input=>input.field.trim())).sort((a,b)=>score(b)-score(a))[0]?.inputs.filter(input=>input.field.trim()) ?? [];
+}
+function recordValues(session:Session,suggestion:Suggestion){
+  const rows:{field:string;value:string|number|boolean|null;kind:string}[]=[];
+  const seen=new Set<string>();
+  const used=new Set<number>();
+  for(const input of baselineInputs(session,suggestion)){
+    const key=norm(input.field);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    const index=suggestion.dataSpec.findIndex((spec,i)=>!used.has(i) && norm(spec.field)===key);
+    if(index>=0){used.add(index);rows.push({field:input.field,value:generate(suggestion.dataSpec[index],`${suggestion.id}:${index}`),kind:suggestion.dataSpec[index].kind});}
+    else rows.push({field:input.field,value:input.value,kind:'given'});
+  }
+  suggestion.dataSpec.forEach((spec,index)=>{
+    if(used.has(index)) return;
+    const field=spec.field.trim() || 'value';
+    seen.add(norm(field));
+    rows.push({field,value:generate(spec,`${suggestion.id}:${index}`),kind:spec.kind});
   });
+  const counts=new Map<string,number>();
+  return rows.map(row=>{
+    const base=row.field.trim() || 'value';
+    const count=(counts.get(base) ?? 0)+1;
+    counts.set(base,count);
+    return {...row,field:count===1?base:`${base}_${count}`};
+  });
+}
+function formatTestData(rows:{field:string;value:string|number|boolean|null}[]){
+  return rows.map(row=>`"Field": ${JSON.stringify(row.field)}, "value": ${JSON.stringify(row.value)}`).join('\n');
+}
+function sheetValue(value:string|number|boolean|null){
+  if(typeof value==='number' || typeof value==='boolean') return value;
+  if(value===null || value===undefined) return '';
+  return /^[=+\-@]/.test(value) ? `'${value}` : value;
 }
 function groups(session:Session,selected:Suggestion[]){
   const features=session.featureMap?.features ?? [];
@@ -44,8 +81,8 @@ function groups(session:Session,selected:Suggestion[]){
   for(const id of [...new Set(selected.map(s=>s.featureId).filter(featureId=>!known.has(featureId)))]) blocks.push({name:id,description:'',items:selected.filter(s=>s.featureId===id)});
   return blocks;
 }
-function scenario(suggestion:Suggestion){
-  const values=namedValues(suggestion);
+function scenario(session:Session,suggestion:Suggestion){
+  const values=recordValues(session,suggestion);
   const lines=[...clauses('Given',suggestion.preconditions),...clauses('When',suggestion.steps),`    Then ${oneLine(suggestion.expectedResult)}`];
   const examples=values.length?`\n\n    Examples:\n      | ${values.map(v=>cell(v.field)).join(' | ')} |\n      | ${values.map(v=>cell(v.value)).join(' | ')} |`:'';
   return `  ${tag(suggestion.id)} ${tag(suggestion.priority)} ${tag(suggestion.category)}\n  ${values.length?'Scenario Outline':'Scenario'}: ${oneLine(suggestion.title)}\n${lines.join('\n')}${examples}`;
@@ -54,14 +91,14 @@ export function renderGherkin(session:Session,body:unknown){
   const selected=selectedFrom(session,body);
   return groups(session,selected).map(group=>{
     const about=group.description.trim()?group.description.trim().split(/\r?\n/).map(line=>`  ${oneLine(line)}`).join('\n')+'\n':'';
-    return `Feature: ${oneLine(group.name) || 'Feature'}\n${about}\n${group.items.map(scenario).join('\n\n')}`;
+    return `Feature: ${oneLine(group.name) || 'Feature'}\n${about}\n${group.items.map(item=>scenario(session,item)).join('\n\n')}`;
   }).join('\n\n')+'\n';
 }
 export function renderPlaywright(session:Session,body:unknown){
   const tests=selectedFrom(session,body).map(suggestion=>{
     const steps=[...suggestion.preconditions.map(step=>`Given ${oneLine(step)}`),...suggestion.steps.map(step=>`When ${oneLine(step)}`),`Then ${oneLine(suggestion.expectedResult)}`];
     const calls=steps.map(step=>`  await test.step(${JSON.stringify(step)}, async () => {\n  });`).join('\n');
-    return `test(${JSON.stringify(suggestion.title)}, async () => {\n  const data = ${JSON.stringify(Object.fromEntries(namedValues(suggestion).map(v=>[v.field,v.value])))};\n${calls}\n});`;
+    return `test(${JSON.stringify(suggestion.title)}, async () => {\n  const data = ${JSON.stringify(Object.fromEntries(recordValues(session,suggestion).map(v=>[v.field,v.value])))};\n${calls}\n});`;
   }).join('\n\n');
   return `// Locators are intentionally absent. Fill in each step against the app under test.\nimport { test } from '@playwright/test';\n\n${tests}\n`;
 }
@@ -72,9 +109,9 @@ export async function exportWorkbook(session:Session,body:unknown) {
   edges.addRow(['ID','Feature','Title','Category','Priority','Rationale','Preconditions','Steps','Test Data','Expected Result']);
   data.addRow(['ID','Field','Value','Kind']);
   for(const s of selected){
-    const values=s.dataSpec.map((spec,i)=>({field:spec.field,value:generate(spec,`${s.id}:${i}`),kind:spec.kind}));
-    edges.addRow([s.id,session.featureMap?.features.find(f=>f.id===s.featureId)?.name ?? s.featureId,s.title,s.category,s.priority,s.rationale,s.preconditions.join('\n'),s.steps.map((step,i)=>`${i+1}. ${step}`).join('\n'),JSON.stringify(values.map(({field,value})=>({field,value}))),s.expectedResult]);
-    for(const v of values) data.addRow([s.id,v.field,JSON.stringify(v.value),v.kind]);
+    const values=recordValues(session,s);
+    edges.addRow([s.id,session.featureMap?.features.find(f=>f.id===s.featureId)?.name ?? s.featureId,s.title,s.category,s.priority,s.rationale,s.preconditions.join('\n'),s.steps.map((step,i)=>`${i+1}. ${step}`).join('\n'),formatTestData(values),s.expectedResult]);
+    for(const v of values){const row=data.addRow([s.id,v.field,'',v.kind]);row.getCell(3).value=sheetValue(v.value);}
   }
   summary.addRow(['Metric','Feature / category','Before','After / selected']);
   summary.addRow(['Test case count','All',session.testCases.length,session.testCases.length+selected.length]);

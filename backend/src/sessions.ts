@@ -9,7 +9,7 @@ import { ClaudeClient } from './claude';
 import { featureMapSchema, TestCase, FeatureMap, Suggestion } from './schemas';
 import { TestRailClient } from './testrail-api';
 import { parseTestRail } from './testrail';
-import { parseUpload } from './upload';
+import { applyOriginalInputs, originalInputs, parseUpload, OriginalRecord } from './upload';
 function assertAnalyzable(map:FeatureMap) {
   const chosen=map.features.filter(f=>f.selected);
   if(!chosen.length) throw new BadRequestException('Select at least one feature for edge-case analysis.');
@@ -90,7 +90,7 @@ export class Sessions {
     } catch(error){session.progress.status='failed';session.progress.error=error instanceof Error?error.message:'Edge-case generation failed.';throw error;} finally{session.busy=false;}
   }
   async upload(file?:Express.Multer.File,text?:unknown) {
-    return this.normalizeAndStore(parseUpload(file,text));
+    return this.normalizeAndStore(parseUpload(file,text), originalInputs(file,text));
   }
   async uploadTestRail(file?:Express.Multer.File) {
     return this.normalizeAndStore(parseTestRail(file));
@@ -103,13 +103,14 @@ export class Sessions {
     const caseIds=Array.isArray(value?.caseIds) ? value.caseIds.map(Number) : [];
     return this.normalizeAndStore(await this.testrail.selection(projectId, suiteId, caseIds));
   }
-  private async normalizeAndStore(chunks:unknown[][]) {
+  private async normalizeAndStore(chunks:unknown[][], originals:OriginalRecord[]=[]) {
     const cases:TestCase[]=[];
     for(const chunk of chunks) {const result=await this.claude.structured(normalizer.output,compose(normalizer,chunk)); cases.push(...result.testCases);}
-    cases.forEach((c,i)=>c.id=`TC-${String(i+1).padStart(3,'0')}`);
+    const stored=applyOriginalInputs(cases, originals);
+    stored.forEach((c,i)=>c.id=`TC-${String(i+1).padStart(3,'0')}`);
     const sessionId=randomUUID();
     for(const [id,s] of this.sessions) if(!s.busy && Date.now()-s.created>4*3600000) this.sessions.delete(id);
-    this.sessions.set(sessionId,{testCases:cases,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle',error:'',review:''},created:Date.now()});
-    return {sessionId,testCases:cases};
+    this.sessions.set(sessionId,{testCases:stored,suggestions:[],busy:false,progress:{completed:0,total:0,current:'',status:'idle',error:'',review:''},created:Date.now()});
+    return {sessionId,testCases:stored};
   }
 }

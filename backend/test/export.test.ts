@@ -35,6 +35,31 @@ test('playwright is a skeleton without locators',()=>{
   assert.match(spec,/test\.step/);
   assert.equal(spec.includes('page.'),false);
 });
+test('excel lists every uploaded field and leaves only the edge field empty',async()=>{
+  const s=seeded();
+  s.get('demo').testCases[0].inputs=[
+    {field:'First name',value:'Priya'},{field:'Last name',value:'Sharma'},{field:'Email',value:'priya.s@test.com'},
+    {field:'Phone',value:'9876543210'},{field:'Password',value:'Pass@2026'},{field:'Confirm',value:'Pass@2026'},
+  ];
+  s.saveMap('demo',map);
+  s.get('demo').suggestions=[{id:'EC-001',featureId:'f1',title:'First name left empty',category:'null_empty',priority:'high',rationale:'Required',preconditions:[],steps:['Submit the form'],dataSpec:[{field:'First name',kind:'empty'}],expectedResult:'Required field error'}];
+  const book=await exportWorkbook(s.get('demo'),{selectedIds:['EC-001']});
+  const copy=new ExcelJS.Workbook();await copy.xlsx.load(await book.xlsx.writeBuffer());
+  const cell=String(copy.getWorksheet('Edge Cases')?.getCell('I2').value);
+  assert.equal(cell,[
+    '"Field": "First name", "value": ""',
+    '"Field": "Last name", "value": "Sharma"',
+    '"Field": "Email", "value": "priya.s@test.com"',
+    '"Field": "Phone", "value": "9876543210"',
+    '"Field": "Password", "value": "Pass@2026"',
+    '"Field": "Confirm", "value": "Pass@2026"',
+  ].join('\n'));
+  assert.equal(copy.getWorksheet('Test Data')?.rowCount,7);
+  assert.equal(copy.getWorksheet('Test Data')?.getCell('B2').value,'First name');
+  assert.equal(copy.getWorksheet('Test Data')?.getCell('C2').value,'');
+  assert.equal(copy.getWorksheet('Test Data')?.getCell('B3').value,'Last name');
+  assert.equal(copy.getWorksheet('Test Data')?.getCell('C3').value,'Sharma');
+});
 test('default export with no format is still an Excel workbook',async()=>{
   const book=await exportWorkbook(withSuggestion().get('demo'),{selectedIds:['EC-1']});
   const copy=new ExcelJS.Workbook();await copy.xlsx.load(await book.xlsx.writeBuffer());
