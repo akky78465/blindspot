@@ -7,6 +7,8 @@ import { normalizer } from './agents/normalizer';
 import { EdgeRunner } from './agents/runner';
 import { ClaudeClient } from './claude';
 import { featureMapSchema, TestCase, FeatureMap, Suggestion } from './schemas';
+import { TestRailClient } from './testrail-api';
+import { parseTestRail } from './testrail';
 import { parseUpload } from './upload';
 function assertAnalyzable(map:FeatureMap) {
   const chosen=map.features.filter(f=>f.selected);
@@ -17,7 +19,7 @@ export interface Session {testCases:TestCase[]; featureMap?:FeatureMap; suggesti
 @Injectable()
 export class Sessions {
   readonly sessions = new Map<string,Session>();
-  constructor(private readonly claude:ClaudeClient, private readonly edgesRunner:EdgeRunner) {}
+  constructor(private readonly claude:ClaudeClient, private readonly edgesRunner:EdgeRunner, private readonly testrail?:TestRailClient) {}
   get(id:string) {const s=this.sessions.get(id);if(!s) throw new NotFoundException('Session not found. Upload your cases again.');return s;}
   async mapFeatures(id:string) {
     const session=this.get(id);
@@ -88,7 +90,21 @@ export class Sessions {
     } catch(error){session.progress.status='failed';session.progress.error=error instanceof Error?error.message:'Edge-case generation failed.';throw error;} finally{session.busy=false;}
   }
   async upload(file?:Express.Multer.File,text?:unknown) {
-    const chunks=parseUpload(file,text); const cases:TestCase[]=[];
+    return this.normalizeAndStore(parseUpload(file,text));
+  }
+  async uploadTestRail(file?:Express.Multer.File) {
+    return this.normalizeAndStore(parseTestRail(file));
+  }
+  async importTestRail(body:unknown) {
+    if(!this.testrail) throw new BadRequestException('TestRail is not configured on the server.');
+    const value=body as {projectId?:unknown;suiteId?:unknown;caseIds?:unknown};
+    const projectId=Number(value?.projectId);
+    const suiteId=value?.suiteId==null || value.suiteId==='' ? undefined : Number(value.suiteId);
+    const caseIds=Array.isArray(value?.caseIds) ? value.caseIds.map(Number) : [];
+    return this.normalizeAndStore(await this.testrail.selection(projectId, suiteId, caseIds));
+  }
+  private async normalizeAndStore(chunks:unknown[][]) {
+    const cases:TestCase[]=[];
     for(const chunk of chunks) {const result=await this.claude.structured(normalizer.output,compose(normalizer,chunk)); cases.push(...result.testCases);}
     cases.forEach((c,i)=>c.id=`TC-${String(i+1).padStart(3,'0')}`);
     const sessionId=randomUUID();

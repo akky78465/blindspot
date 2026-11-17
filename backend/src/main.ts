@@ -3,7 +3,7 @@ import { config } from 'dotenv';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import { Module, Controller, Post, Body, UploadedFile, UseInterceptors, Get, Put, Param, Res, UseGuards } from '@nestjs/common';
+import { Module, Controller, Post, Body, UploadedFile, UseInterceptors, Get, Put, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { FileInterceptor, NestExpressApplication } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiParam, ApiProduces, ApiTags, DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { EDGE_GENERATOR, EDGE_JUDGE, EdgeRunner } from './agents/runner';
@@ -13,6 +13,7 @@ import { exportFormat, exportWorkbook, renderGherkin, renderPlaywright } from '.
 import { OpenAiJudge } from './openai';
 import { Sessions } from './sessions';
 import { ApiKeyGuard, Public } from './api-key';
+import { TestRailClient } from './testrail-api';
 config({path:resolve(__dirname,'../.env')});
 const sessionId=ApiParam({name:'id',description:'Session id returned by upload'});
 const categories=['boundary','null_empty','format','length','special_chars','date_time','state_transition','permissions','concurrency','security','domain'];
@@ -29,6 +30,13 @@ class SessionsController {
   @ApiOkResponse({description:'Created session',schema:{type:'object',properties:{sessionId:{type:'string'},testCases:{type:'array',items:{type:'object'}}}}})
   @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024}}))
   upload(@UploadedFile() file:Express.Multer.File|undefined,@Body() body:{text?:unknown}) {return this.sessions.upload(file,body?.text);}
+  @Post('testrail')
+  @ApiOperation({summary:'Upload a TestRail export',description:'Send a TestRail XML, CSV, or XLSX export as multipart field file (max 5 MB).'})
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({schema:{type:'object',properties:{file:{type:'string',format:'binary',description:'TestRail export, max 5 MB.'}}}})
+  @ApiOkResponse({description:'Created session',schema:{type:'object',properties:{sessionId:{type:'string'},testCases:{type:'array',items:{type:'object'}}}}})
+  @UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024}}))
+  testrail(@UploadedFile() file:Express.Multer.File|undefined) {return this.sessions.uploadTestRail(file);}
   @Post(':id/feature-map') @sessionId
   @ApiOperation({summary:'Build the feature map'})
   @ApiOkResponse({description:'Inferred feature map',schema:featureMapBody.schema})
@@ -71,7 +79,15 @@ class SessionsController {
   @ApiOkResponse({schema:{type:'object',properties:{ok:{type:'boolean',example:true}}}})
   health(){return {ok:true};}
 }
-@Module({controllers:[SessionsController],providers:[ClaudeClient,OpenAiJudge,{provide:EDGE_GENERATOR,useExisting:ClaudeClient},{provide:EDGE_JUDGE,useExisting:OpenAiJudge},EdgeRunner,Sessions,ApiKeyGuard]})
+@Controller('api/testrail')
+class TestRailController {
+  constructor(private readonly testrail:TestRailClient, private readonly sessions:Sessions) {}
+  @Get('projects') projects(){return this.testrail.projects();}
+  @Get('projects/:projectId/suites') suites(@Param('projectId') projectId:string){return this.testrail.suites(Number(projectId));}
+  @Get('projects/:projectId/cases') cases(@Param('projectId') projectId:string,@Query('suiteId') suiteId?:string,@Query('sectionId') sectionId?:string){return this.testrail.catalog(Number(projectId), suiteId ? Number(suiteId) : undefined, sectionId ? Number(sectionId) : undefined);}
+  @Post('import') importCases(@Body() body:unknown){return this.sessions.importTestRail(body);}
+}
+@Module({controllers:[SessionsController,TestRailController],providers:[ClaudeClient,OpenAiJudge,{provide:EDGE_GENERATOR,useExisting:ClaudeClient},{provide:EDGE_JUDGE,useExisting:OpenAiJudge},EdgeRunner,Sessions,ApiKeyGuard,TestRailClient]})
 class AppModule {}
 async function bootstrap(){
   const app=await NestFactory.create<NestExpressApplication>(AppModule);

@@ -52,12 +52,19 @@ Backend tests cover upload parsing, PII masking, normalization storage, feature 
 | Method | Endpoint | Input / response |
 | --- | --- | --- |
 | POST | `/api/sessions/upload` | multipart `file` or JSON `{ "text": "..." }`; returns sessionId and normalized testCases |
+| POST | `/api/sessions/testrail` | multipart TestRail case export (`.xml`, `.csv`, or `.xlsx`); same response as upload |
+| GET | `/api/testrail/projects` | projects available to the configured TestRail account |
+| GET | `/api/testrail/projects/:id/suites` | suites for a project |
+| GET | `/api/testrail/projects/:id/cases` | cases for a project, with optional `suiteId` and `sectionId` |
+| POST | `/api/testrail/import` | `{ "projectId": 1, "suiteId": 2, "caseIds": [10, 11] }`; same response as upload |
 | POST | `/api/sessions/:id/feature-map` | builds and returns FeatureMap |
 | PUT | `/api/sessions/:id/feature-map` | accepts the edited complete FeatureMap; invalidates suggestions |
 | POST | `/api/sessions/:id/edge-cases` | one Claude call per feature; returns `{suggestions}` sorted high to low |
 | GET | `/api/sessions/:id/progress` | completed, total, current feature, status |
 | POST | `/api/sessions/:id/export` | `{ "selectedIds": ["EC-001"] }`; streams XLSX |
 | GET | `/api/sessions/health` | local service health |
+
+Choose **Choose TestRail export** to load projects from the TestRail account configured on the server. Pick a project, suite, and any sections, then select one or more cases and choose **Analyze selected**. Those cases follow the same normalization, feature map, and edge-case steps. An exported XML, CSV, or Excel file can still be uploaded from the same section. TestRail credentials stay in `backend/.env` and are not sent to the browser.
 
 Upload normalization batches spreadsheets into 30-row chunks. Files are limited to 5 MB, 600 rows, and 500,000 extracted characters; pasted text is limited to 100,000 characters. Source references preserve actual sheet row numbers. Claude responses use a forced tool with a Zod-derived JSON schema; validation failures retry once with the error message. SDK transport retries are separate. Exact duplicate titles are filtered locally; semantic deduplication depends on Claude and still needs human review. Suggestions are capped at 18 per feature to bound output size.
 

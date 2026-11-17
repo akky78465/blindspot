@@ -1,0 +1,15 @@
+name: Deploy Render
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy the latest main commit
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl --fail-with-body --silent --show-error --request POST "$RENDER_DEPLOY_HOOK"
