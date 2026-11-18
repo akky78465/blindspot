@@ -20,7 +20,7 @@ npm run dev -w backend
 npm start -w frontend
 ```
 
-`CLAUDE_MODEL` defaults to `claude-sonnet-5`, exactly as requested. The configured model must be available to your account **and support forced tool use**. If the provider rejects that combination, set `CLAUDE_MODEL` to an available model that supports it; Blindpot does not silently switch models or use fabricated AI responses. Model availability and a live Claude run have not been verified without credentials.
+`CLAUDE_MODEL` defaults to `claude-opus-5-5`. `OPENAI_MODEL` defaults to `gpt-5.6` for edge-case review. The configured model must be available to your account **and support forced tool use**. If the provider rejects that combination, set `CLAUDE_MODEL` to an available model that supports it; Blindpot does not silently switch models or use fabricated AI responses. Model availability and a live Claude run have not been verified without credentials.
 
 ## Validation
 
