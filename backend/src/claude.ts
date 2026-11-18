@@ -16,7 +16,7 @@ export class ClaudeClient {
     for (let attempt=0; attempt<2; attempt++) {
       let response;
       try {
-        response = await client.messages.create({model:process.env.CLAUDE_MODEL || 'claude-sonnet-5-5',max_tokens:12000,
+        response = await client.messages.create({model:process.env.CLAUDE_MODEL || 'claude-opus-5-5',max_tokens:12000,
           system,
           messages:[{role:'user',content:mask(prompt+correction)}],
           tools:[{name:'submit_result',description:'Submit the validated QA analysis',input_schema:{...z.toJSONSchema(schema),type:'object'}}],
