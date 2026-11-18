@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {compose} from '../src/agents/agent';
+import {judgeUserPrompt} from '../src/agents/judge';
 import {agents} from '../src/agents/index';
 import {edgesPrompt} from '../src/prompts/edges';
 import {featuresPrompt} from '../src/prompts/features';
@@ -17,4 +18,7 @@ test('catalog names and composed prompts match the original functions',()=>{
   assert.equal(compose(agents.featureMapper,cases),featuresPrompt(cases));
   assert.equal(compose(agents.edgeCase,{feature,cases}),edgesPrompt(feature,cases));
   assert.equal(agents.normalizer.output.safeParse({testCases:cases}).success,true);
+  const review=judgeUserPrompt('GENERATOR-CHECKLIST-SHOULD-BE-HIDDEN','task',{suggestions:[]});
+  assert.match(review,/Flag a suggestion only when you are uncertain/);
+  assert.doesNotMatch(review,/GENERATOR-CHECKLIST-SHOULD-BE-HIDDEN/);
 });

@@ -44,7 +44,6 @@ html { @include mat.theme((color:(primary:mat.$red-palette,tertiary:mat.$red-pal
 .feature-card mat-chip-listbox { display: block; margin: 8px 0 4px; }
 .gap-msg { color: var(--danger); font-size: 12px; margin: 8px 0 0; }
 .mat-step-icon-selected { color: var(--ink) !important; }
-.review-note { color: var(--ink); white-space: pre-line; margin-top: 8px; }
 .export-format { display: flex; justify-content: center; margin: 0 auto 8px; }
 .export-format .filter-row { justify-content: center; }
 .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
