@@ -13,12 +13,32 @@ cp backend/.env.example backend/.env
 npm run dev
 ```
 
-Open http://localhost:4200. If that port is occupied, run the frontend separately with `` and open http://localhost:4207 (API requests use the dev proxy). The NestJS API listens on http://127.0.0.1:3000. Keep the key on the backend; never enter it in browser code. To run separately:
+Open http://localhost:4200. The NestJS API listens on http://127.0.0.1:3000. Keep the key on the backend; never enter it in browser code.
+
+If port 4200 is already in use, do not run `npm run dev` again. Start the two processes yourself and open http://127.0.0.1:4207. API requests still go through the dev proxy to port 3000.
 
 ```sh
 npm run dev -w backend
-npm start -w frontend
+npm start -w frontend -- --port 4207
 ```
+
+## Local cost traces
+
+Phoenix records Claude and OpenAI token use on this machine. It is off until `backend/.env` contains:
+
+```
+PHOENIX_ENABLED=true
+PHOENIX_COLLECTOR_ENDPOINT=http://localhost:6006
+PHOENIX_PROJECT_NAME=blindspot
+```
+
+Start Phoenix before the API, and leave it running. This machine has `uvx` and does not have `python` on `PATH`.
+
+```sh
+uvx arize-phoenix serve
+```
+
+Open http://127.0.0.1:6006. After the API restarts, its log should say `Phoenix tracing is on`. Upload the sample and run **Map features** or **Find edge cases**, then refresh Phoenix and open the **blindspot** project. Claude calls are **Anthropic Messages**. OpenAI reviews are **OpenAI Chat Completions**. Loading the app does not create a trace. Browser tests stub both models, so they do not appear there either. Leave `PHOENIX_ENABLED` unset on Render.
 
 `CLAUDE_MODEL` defaults to `claude-sonnet-5`, exactly as requested. The configured model must be available to your account **and support forced tool use**. If the provider rejects that combination, set `CLAUDE_MODEL` to an available model that supports it; Blindpot does not silently switch models or use fabricated AI responses. Model availability and a live Claude run have not been verified without credentials.
 

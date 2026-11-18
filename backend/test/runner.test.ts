@@ -28,6 +28,10 @@ test('a rejection is sent back once and the corrected draft is kept',async()=>{
   assert.ok(generator.prompts[1].includes('Too vague.'));
   assert.ok(generator.prompts[1].includes('Previous draft JSON'));
   assert.ok(generator.prompts[1].includes('Old'));
+  assert.ok(generator.prompts[1].includes('Omit params on empty'));
+  assert.ok(generator.prompts[0].includes('omit params'));
+  assert.ok(generator.prompts[0].includes('strictly positive'));
+  assert.ok(generator.prompts[1].includes('When steps name a currency'));
 });
 
 test('a second rejection drops only the named suggestion',async()=>{
@@ -37,6 +41,16 @@ test('a second rejection drops only the named suggestion',async()=>{
   const result=await new EdgeRunner(generator,judge).run(edgeCase,input);
   assert.deepEqual(result.suggestions.map(item=>item.title),['Keep me']);
   assert.match(result.notes[0],/Drop me/);
+});
+
+test('a second rejection drops a suggestion named by id in the problem',async()=>{
+  const keep=suggestion('Keep me');
+  const drop={...suggestion('Bad email max'),id:'TC-009'};
+  const draft={suggestions:[keep,drop]};
+  const generator=scripted([draft,draft]);
+  const judge=scripted([{accept:false,issues:[{title:'Invented email maximum',problem:'TC-009 assumes a 254-character maximum.'}]},{accept:false,issues:[{title:'Invented email maximum',problem:'TC-009 assumes a 254-character maximum.'}]}]);
+  const result=await new EdgeRunner(generator,judge).run(edgeCase,input);
+  assert.deepEqual(result.suggestions.map(item=>item.title),['Keep me']);
 });
 
 test('beginEdges reports a missing OpenAI key before the session is busy',()=>{

@@ -9,6 +9,15 @@ export const EDGE_JUDGE = 'EDGE_JUDGE';
 
 export interface EdgeRun { suggestions: Suggestion[]; notes: string[]; review: string }
 
+function cites(issue: { title: string; problem: string }, suggestion: Suggestion) {
+  const title = issue.title.trim();
+  if (title === suggestion.title.trim() || title === suggestion.id.trim()) return true;
+  const id = suggestion.id.trim();
+  if (!id) return false;
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^A-Za-z0-9])${escaped}(?=$|[^A-Za-z0-9])`).test(`${issue.title}\n${issue.problem}`);
+}
+
 @Injectable()
 export class EdgeRunner {
   private readonly log = new Logger(EdgeRunner.name);
@@ -38,10 +47,9 @@ export class EdgeRunner {
       this.log.log(second);
     }
     if (verdict.accept) return { suggestions: draft.suggestions, notes: [], review: review.join('\n') };
-    // A second rejection filters by title and does not throw. A transport or schema error still throws above.
-    const named = new Set(verdict.issues.map(issue => issue.title.trim()));
+    // A second rejection removes the named suggestion and does not throw. A transport or schema error still throws above.
     return {
-      suggestions: draft.suggestions.filter(suggestion => !named.has(suggestion.title.trim())),
+      suggestions: draft.suggestions.filter(suggestion => !verdict.issues.some(issue => cites(issue, suggestion))),
       notes: verdict.issues.map(issue => `Dropped "${issue.title.trim()}": ${issue.problem}`),
       review: review.join('\n'),
     };

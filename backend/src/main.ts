@@ -1,3 +1,4 @@
+import './instrumentation';
 import 'reflect-metadata';
 import { config } from 'dotenv';
 import { existsSync } from 'node:fs';
