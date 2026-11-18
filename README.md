@@ -13,14 +13,9 @@ cp backend/.env.example backend/.env
 npm run dev
 ```
 
-Open http://localhost:4200. The NestJS API listens on http://127.0.0.1:3000. Keep the key on the backend; never enter it in browser code.
+Open http://localhost:4300. `npm run dev` starts the API on http://127.0.0.1:3000 and the app on port 4300. Keep the key on the backend; never enter it in browser code.
 
-If port 4200 is already in use, do not run `npm run dev` again. Start the two processes yourself and open http://127.0.0.1:4207. API requests still go through the dev proxy to port 3000.
-
-```sh
-npm run dev -w backend
-npm start -w frontend -- --port 4207
-```
+If port 4300 is already in use, stop the other process before running `npm run dev` again. API requests still go through the dev proxy to port 3000.
 
 ## Local cost traces
 
@@ -98,7 +93,7 @@ Summary coverage means **inferred categories represented**, before and after add
 
 ## POC limits
 
-No database or authentication. Sessions are held in a Map, disappear on restart, and inactive sessions older than four hours are cleaned up on subsequent uploads. Restarting/reloading the browser starts a new workflow. The API binds to loopback; CORS is configured with `FRONTEND_ORIGIN` (default `http://localhost:4200`). This is a local hackathon app, not a multi-user deployment.
+No database or authentication. Sessions are held in a Map, disappear on restart, and inactive sessions older than four hours are cleaned up on subsequent uploads. Restarting/reloading the browser starts a new workflow. The API binds to loopback; CORS is configured with `FRONTEND_ORIGIN` (default `http://localhost:4300`). This is a local hackathon app, not a multi-user deployment.
 
 Regex masking is best-effort for emails, phones, and card-like sequences, and runs before every Claude request. It does not detect all sensitive data (such as names, addresses, or secrets). Use synthetic input for demos. Masking may also obscure numeric boundary values that resemble phone/card numbers.
 

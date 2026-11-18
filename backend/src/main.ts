@@ -92,7 +92,7 @@ class TestRailController {
 class AppModule {}
 async function bootstrap(){
   const app=await NestFactory.create<NestExpressApplication>(AppModule);
-  app.enableCors({origin:process.env.FRONTEND_ORIGIN || 'http://localhost:4200'});
+  app.enableCors({origin:process.env.FRONTEND_ORIGIN || 'http://localhost:4300'});
   const webRoot=process.env.WEB_ROOT || join(__dirname,'../../frontend/dist/maryada/browser');
   const document=SwaggerModule.createDocument(app,new DocumentBuilder().setTitle('Blindspot').setDescription('Upload test cases, review the feature map, generate edge cases, and download an Excel workbook. Direct calls and Swagger Try it out send the x-api-key header. The web app on FRONTEND_ORIGIN does not.').setVersion('1.0').addApiKey({type:'apiKey',name:'x-api-key',in:'header',description:'Value from BLINDSPOT_API_KEYS.'},'apiKey').addSecurityRequirements('apiKey').build());
   const health=document.paths['/api/sessions/health']?.get; if(health) health.security=[];

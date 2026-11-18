@@ -10,7 +10,7 @@ export function acceptsApiKey(headers:Record<string,string|string[]|undefined>, 
   const provided=header(headers['x-api-key']);
   if(provided && keys.includes(provided)) return true;
   const origin=header(headers.origin);
-  const allowed=(process.env.FRONTEND_ORIGIN || 'http://localhost:4200').split(',').map(item=>item.trim()).filter(Boolean);
+  const allowed=(process.env.FRONTEND_ORIGIN || 'http://localhost:4300').split(',').map(item=>item.trim()).filter(Boolean);
   if(origin && allowed.includes(origin)) return true;
   const referer=header(headers.referer) || '';
   if(header(headers['sec-fetch-site'])==='same-origin' && !referer.includes('/api/docs')) return true;
